@@ -1,5 +1,7 @@
 // const fs = require('fs');
 const cheerio = require("cheerio");
+const https = require("https");
+const configs = require("../config");
 
 /**
  * 获取小说主页链接
@@ -13,139 +15,62 @@ exports.getFictionHomeUrl = function (strSearchResHtml, fictionName) {
   const $ = cheerio.load(strSearchResHtml, { normalizeWhitespace: true });
   const searchResList = $("#search-main ul li .s2");
   let url = "";
-  for (let i = 0, il = searchResList.length; i < il; i++) {
-      console.log(searchResList[i]);
-    if (searchResList[i].text().replace(/\s+|\r|\n|\t/gi, "") === fictionName) {
-      url = searchResList[i].find("a")[0].attr("href");
-      return;
+  searchResList.each((idx, elem) => {
+    if (
+      $(elem)
+        .text()
+        .replace(/\s+|\r|\n|\t/gi, "") === fictionName
+    ) {
+      console.log($(this).text());
+      url =
+        $(elem).find("a").length > 0
+          ? $($(elem).find("a")[0]).attr("href")
+          : "";
+      return false;
     }
-  }
+  });
   return url;
 };
 
-/*
-searchResList[i] = 
-{
-  type: 'tag',
-  name: 'span',
-  namespace: 'http://www.w3.org/1999/xhtml',
-  attribs: [Object: null prototype] { class: 's2' },
-  'x-attribsNamespace': [Object: null prototype] { class: undefined },
-  'x-attribsPrefix': [Object: null prototype] { class: undefined },
-  children: [
-    {
-      type: 'tag',
-      name: 'b',
-      namespace: 'http://www.w3.org/1999/xhtml',
-      attribs: [Object: null prototype] {},
-      'x-attribsNamespace': [Object: null prototype] {},
-      'x-attribsPrefix': [Object: null prototype] {},
-      children: [Array],
-      parent: [Circular],
-      prev: null,
-      next: null
+/**
+ * 查询小说
+ *
+ * @param {*} fictionName
+ */
+exports.searchFiction = function (fictionName) {
+  return new Promise((resolve, reject) => {
+    try {
+      https
+        .get(
+          configs.SEARCH_FICTION_RESULT + fictionName,
+          { rejectUnauthorized: false },
+          (res) => {
+            const { statusCode } = res;
+            if (statusCode === 200) {
+              res.setEncoding("utf8");
+              let rowData = "";
+              res.on("data", (chunk) => {
+                rowData += chunk;
+              });
+              res.on("end", () => {
+                console.log("读取结束");
+                resolve({ code: 200, data: rowData });
+              });
+            } else {
+              console.log("[searchFiction]:" + res);
+              reject(res);
+              res.resume();
+              return;
+            }
+          }
+        )
+        .on("error", (e) => {
+          console.error(`[searchFiction]出错了：${e.message}`);
+          reject(e);
+        });
+    } catch (error) {
+      console.log("[searchFiction]" + error);
+      reject(error);
     }
-  ],
-  parent: {
-    type: 'tag',
-    name: 'li',
-    namespace: 'http://www.w3.org/1999/xhtml',
-    attribs: [Object: null prototype] {},
-    'x-attribsNamespace': [Object: null prototype] {},
-    'x-attribsPrefix': [Object: null prototype] {},
-    children: [
-      [Object],   [Object],
-      [Circular], [Object],
-      [Object],   [Object],
-      [Object],   [Object],
-      [Object],   [Object],
-      [Object],   [Object],
-      [Object],   [Object]
-    ],
-    parent: {
-      type: 'tag',
-      name: 'ul',
-      namespace: 'http://www.w3.org/1999/xhtml',
-      attribs: [Object: null prototype] {},
-      'x-attribsNamespace': [Object: null prototype] {},
-      'x-attribsPrefix': [Object: null prototype] {},
-      children: [Array],
-      parent: [Object],
-      prev: [Object],
-      next: [Object]
-    },
-    prev: {
-      type: 'text',
-      data: '\n                ',
-      parent: [Object],
-      prev: null,
-      next: [Circular]
-    },
-    next: {
-      type: 'text',
-      data: '\n\n                                    ',
-      parent: [Object],
-      prev: [Circular],
-      next: [Object]
-    }
-  },
-  prev: {
-    type: 'text',
-    data: '\n                    ',
-    parent: {
-      type: 'tag',
-      name: 'li',
-      namespace: 'http://www.w3.org/1999/xhtml',
-      attribs: [Object: null prototype] {},
-      'x-attribsNamespace': [Object: null prototype] {},
-      'x-attribsPrefix': [Object: null prototype] {},
-      children: [Array],
-      parent: [Object],
-      prev: [Object],
-      next: [Object]
-    },
-    prev: {
-      type: 'tag',
-      name: 'span',
-      namespace: 'http://www.w3.org/1999/xhtml',
-      attribs: [Object: null prototype],
-      'x-attribsNamespace': [Object: null prototype],
-      'x-attribsPrefix': [Object: null prototype],
-      children: [Array],
-      parent: [Object],
-      prev: null,
-      next: [Circular]
-    },
-    next: [Circular]
-  },
-  next: {
-    type: 'text',
-    data: '\n                    ',
-    parent: {
-      type: 'tag',
-      name: 'li',
-      namespace: 'http://www.w3.org/1999/xhtml',
-      attribs: [Object: null prototype] {},
-      'x-attribsNamespace': [Object: null prototype] {},
-      'x-attribsPrefix': [Object: null prototype] {},
-      children: [Array],
-      parent: [Object],
-      prev: [Object],
-      next: [Object]
-    },
-    prev: [Circular],
-    next: {
-      type: 'tag',
-      name: 'span',
-      namespace: 'http://www.w3.org/1999/xhtml',
-      attribs: [Object: null prototype],
-      'x-attribsNamespace': [Object: null prototype],
-      'x-attribsPrefix': [Object: null prototype],
-      children: [Array],
-      parent: [Object],
-      prev: [Circular],
-      next: [Object]
-    }
-  }
+  });
 }
-*/
