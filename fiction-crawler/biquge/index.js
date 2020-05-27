@@ -6,6 +6,8 @@ exports.start = async function start(fictionName) {
     if (searchRes.code && searchRes.code === 200) {
       const fictionUrl = common.getFictionHomeUrl(searchRes.data, fictionName);
       console.log("fiction url = " + fictionUrl);
+      const chaptchUrls = await common.getAllChapters(fictionUrl);
+      console.log("chaptchUrls.length=" + chaptchUrls.length);
     }
   } catch (error) {
     console.error("[start]" + error);
