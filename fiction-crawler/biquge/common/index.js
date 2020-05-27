@@ -128,7 +128,9 @@ exports.getAllChapters = async function (fictionHomeUrl) {
       const aList = $("#list dd a[href^='/book'][style='']");
       let chaptchUrls = [];
       aList.each((idx, elem) => {
-        chaptchUrls.push($(elem).attr("href"));
+        if ($(elem).text().replace(/\s+|\r|\n|\t/gi, "").startsWith("第")) {
+          chaptchUrls.push($(elem).attr("href"));
+        }
       });
       return chaptchUrls;
     } else {
