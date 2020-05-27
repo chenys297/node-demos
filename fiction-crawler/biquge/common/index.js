@@ -3,6 +3,51 @@ const cheerio = require("cheerio");
 const https = require("https");
 const configs = require("../config");
 
+
+/**
+ * 获取页面的html字符串
+ *
+ * @param {*} url
+ * @returns
+ */
+function getHtmlStr(url) {
+  return new Promise((resolve, reject) => {
+    try {
+      https
+        .get(
+          url,
+          { rejectUnauthorized: false },
+          (res) => {
+            const { statusCode } = res;
+            if (statusCode === 200) {
+              res.setEncoding("utf8");
+              let rowData = "";
+              res.on("data", (chunk) => {
+                rowData += chunk;
+              });
+              res.on("end", () => {
+                console.log("[getHtmlStr]:读取结束");
+                resolve({ code: 200, data: rowData });
+              });
+            } else {
+              console.log("[getHtmlStr]:" + res);
+              reject(res);
+              res.resume();
+              return;
+            }
+          }
+        )
+        .on("error", (e) => {
+          console.error(`[getHtmlStr]出错了：${e.message}`);
+          reject(e);
+        });
+    } catch (error) {
+      console.log("[getHtmlStr]" + error);
+      reject(error);
+    }
+  });
+}
+
 /**
  * 获取小说主页链接
  *
@@ -73,4 +118,15 @@ exports.searchFiction = function (fictionName) {
       reject(error);
     }
   });
+}
+
+
+/**
+ * 获取所有章节链接
+ *
+ * @param {*} fictionHomeUrl
+ * @returns Array
+ */
+exports.getAllChapters = function(fictionHomeUrl) {
+  
 }
