@@ -127,6 +127,15 @@ exports.searchFiction = function (fictionName) {
  * @param {*} fictionHomeUrl
  * @returns Array
  */
-exports.getAllChapters = function(fictionHomeUrl) {
+exports.getAllChapters = async function(fictionHomeUrl) {
+  try {
+    const {code, data} = await getHtmlStr(fictionHomeUrl);
+    if (code && code === 200) {
+      const $ = cheerio.load(data, { normalizeWhitespace: true });
+      const aList = $("#list dd a")
+    }
+  } catch (error) {
+    console.log("[getAllChapters]" + error);
+  }
   
 }
