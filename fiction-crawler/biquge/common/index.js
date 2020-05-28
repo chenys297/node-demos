@@ -2,6 +2,8 @@
 const cheerio = require("cheerio");
 const https = require("https");
 const configs = require("../config");
+const fs = require("fs");
+const path = require("path");
 
 /**
  * 获取页面的html字符串
@@ -128,7 +130,12 @@ exports.getAllChapters = async function (fictionHomeUrl) {
       const aList = $("#list dd a[href^='/book'][style='']");
       let chaptchUrls = [];
       aList.each((idx, elem) => {
-        if ($(elem).text().replace(/\s+|\r|\n|\t/gi, "").startsWith("第")) {
+        if (
+          $(elem)
+            .text()
+            .replace(/\s+|\r|\n|\t/gi, "")
+            .startsWith("第")
+        ) {
           chaptchUrls.push($(elem).attr("href"));
         }
       });
@@ -140,4 +147,88 @@ exports.getAllChapters = async function (fictionHomeUrl) {
   } catch (error) {
     console.log("[getAllChapters]" + error);
   }
+};
+
+/**
+ * 保存小说
+ *
+ * @param {*} chaptchName
+ * @param {*} chaptchContent
+ */
+function saveFiction(chaptchName, chaptchContent, fictionName) {
+  try {
+    let data = "\n\t" + chaptchName + "\n" + chaptchContent;
+    console.log(`${fictionName}:${chaptchName}开始写入...`);
+    fs.writeFile(
+      path.join(
+        __dirname,
+        "../../temp/fictions/" + fictionName + "/chaptchs/" + chaptchName + ".txt"
+      ),
+      data,
+      { encoding: "utf8" },
+      (err) => {
+        if (err) {
+          throw err;
+        }
+        console.log(`${fictionName}:${chaptchName}写入完成`);
+      }
+    );
+    // fs.appendFile(
+    //   path.join(__dirname, '../../temp/fictions/' + fictionName + '/《' + fictionName + '》.txt'),
+    //   data,
+    //   { encoding: "utf8" },
+    //   (err) => {
+    //     if (err) {
+    //       throw err;
+    //     }
+    //     console.log(`${fictionName}:${chaptchName}写入完成`);
+    //   }
+    // );
+  } catch (error) {
+    console.log(
+      `[saveFiction]:chaptchName=${chaptchName}&&chapchContent=${chaptchContent}&&fictionName=${fictionName}&&error=${error}`
+    );
+  }
+}
+
+/**
+ * 获取小说章节详情内容
+ *
+ * @param {*} chaptchUrl
+ * @param {*} fictionName
+ */
+exports.getChaptchContent = async function (chaptchUrl, fictionName) {
+  try {
+    console.log(`开始爬取章节${chaptchUrl}`);
+    const { code, data } = await getHtmlStr(chaptchUrl);
+    console.log(`爬取结果code=${code}`);
+    if (code && code === 200) {
+      const $ = cheerio.load(data, { normalizeWhitespace: true });
+      const chaptchName = $(".bookname h1").first().text();
+      const content = $("#content")
+        .text()
+        .replace(
+          /\(看小说到\)16977小游戏每天更新好玩的小游戏，等你来发现！|章节错误,点此举报\(免注册\)5分钟内会处理.举报后请耐心等待,并刷新页面。/gi,
+          ""
+        );
+      saveFiction(chaptchName, content, fictionName);
+    } else {
+      console.log("[getChaptchContent]出错了");
+      throw new Error("[getChaptchContent]出错了");
+    }
+  } catch (error) {
+    console.log("[getChaptchContent]" + error);
+    throw new Error("[getChaptchContent]出错了." + error);
+  }
+};
+
+/**
+ * 睡眠
+ *
+ * @param {*} sleepTimes
+ */
+exports.sleep = function (sleepTimes) {
+  const startTime = new Date().getTime();
+  const endTime = startTime + sleepTimes;
+  while (new Date().getTime() < endTime);
 };
