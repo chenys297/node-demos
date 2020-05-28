@@ -12,10 +12,19 @@ const path = require("path");
  * @returns
  */
 function getHtmlStr(url) {
+  const startTime = new Date().getTime();
+  console.log(`请求[${url}]开始时间：${startTime}`);
   return new Promise((resolve, reject) => {
     try {
+      const agent = new https.Agent({
+        keepAlive: true,
+        maxSockets: 100,
+        maxFreeSockets: 80,
+        timeout: 60 * 1000,
+        maxCachedSessions: 100,
+      });
       https
-        .get(url, { rejectUnauthorized: false }, (res) => {
+        .get(url, { rejectUnauthorized: false, agent: agent }, (res) => {
           const { statusCode } = res;
           if (statusCode === 200) {
             res.setEncoding("utf8");
@@ -24,6 +33,8 @@ function getHtmlStr(url) {
               rowData += chunk;
             });
             res.on("end", () => {
+              const endTime = new Date().getTime();
+              console.log(`请求[${url}]结束时间：${endTime}.耗时：${endTime - startTime}`);
               console.log("[getHtmlStr]:读取结束");
               resolve({ code: 200, data: rowData });
             });
@@ -159,22 +170,15 @@ function saveFiction(chaptchName, chaptchContent, fictionName) {
   try {
     let data = "\n\t" + chaptchName + "\n" + chaptchContent;
     console.log(`${fictionName}:${chaptchName}开始写入...`);
-    fs.writeFile(
-      path.join(
-        __dirname,
-        "../../temp/fictions/" + fictionName + "/chaptchs/" + chaptchName + ".txt"
-      ),
-      data,
-      { encoding: "utf8" },
-      (err) => {
-        if (err) {
-          throw err;
-        }
-        console.log(`${fictionName}:${chaptchName}写入完成`);
-      }
-    );
-    // fs.appendFile(
-    //   path.join(__dirname, '../../temp/fictions/' + fictionName + '/《' + fictionName + '》.txt'),
+    // fs.writeFile(
+    //   path.join(
+    //     __dirname,
+    //     "../../temp/fictions/" +
+    //       fictionName +
+    //       "/chaptchs/" +
+    //       chaptchName +
+    //       ".txt"
+    //   ),
     //   data,
     //   { encoding: "utf8" },
     //   (err) => {
@@ -184,6 +188,12 @@ function saveFiction(chaptchName, chaptchContent, fictionName) {
     //     console.log(`${fictionName}:${chaptchName}写入完成`);
     //   }
     // );
+    fs.appendFileSync(
+      path.join(__dirname, '../../temp/fictions/' + fictionName + '/《' + fictionName + '》.txt'),
+      data,
+      { encoding: "utf8" }
+    );
+    console.log(`${fictionName}:${chaptchName}写入完成`);
   } catch (error) {
     console.log(
       `[saveFiction]:chaptchName=${chaptchName}&&chapchContent=${chaptchContent}&&fictionName=${fictionName}&&error=${error}`
