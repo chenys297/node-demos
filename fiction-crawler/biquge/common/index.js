@@ -4,6 +4,7 @@ const https = require("https");
 const configs = require("../config");
 const fs = require("fs");
 const path = require("path");
+const axios = require("axios");
 
 /**
  * 获取页面的html字符串
@@ -18,10 +19,10 @@ function getHtmlStr(url) {
     try {
       const agent = new https.Agent({
         keepAlive: true,
-        maxSockets: 100,
-        maxFreeSockets: 80,
-        timeout: 60 * 1000,
-        maxCachedSessions: 100,
+        maxSockets: 2000,
+        maxFreeSockets: 1800,
+        // timeout: 60 * 1000,
+        maxCachedSessions: 2000,
       });
       https
         .get(url, { rejectUnauthorized: false, agent: agent }, (res) => {
@@ -34,7 +35,9 @@ function getHtmlStr(url) {
             });
             res.on("end", () => {
               const endTime = new Date().getTime();
-              console.log(`请求[${url}]结束时间：${endTime}.耗时：${endTime - startTime}`);
+              console.log(
+                `请求[${url}]结束时间：${endTime}.耗时：${endTime - startTime}`
+              );
               console.log("[getHtmlStr]:读取结束");
               resolve({ code: 200, data: rowData });
             });
@@ -53,6 +56,28 @@ function getHtmlStr(url) {
       console.log("[getHtmlStr]" + error);
       reject(error);
     }
+  });
+}
+
+/**
+ * 获取页面html string
+ *
+ * @param {*} url
+ */
+function getHtmlStrWithAxios(url) {
+  return new Promise((resolve, reject) => {
+    axios
+      .get(url)
+      .then((res) => {
+        if (res.status === 200) {
+          resolve({ code: 200, data: res.data });
+        } else {
+          reject(res);
+        }
+      })
+      .catch((err) => {
+        reject(err);
+      });
   });
 }
 
@@ -168,32 +193,36 @@ exports.getAllChapters = async function (fictionHomeUrl) {
  */
 function saveFiction(chaptchName, chaptchContent, fictionName) {
   try {
-    let data = "\n\t" + chaptchName + "\n" + chaptchContent;
-    console.log(`${fictionName}:${chaptchName}开始写入...`);
-    // fs.writeFile(
-    //   path.join(
-    //     __dirname,
-    //     "../../temp/fictions/" +
-    //       fictionName +
-    //       "/chaptchs/" +
-    //       chaptchName +
-    //       ".txt"
-    //   ),
-    //   data,
-    //   { encoding: "utf8" },
-    //   (err) => {
-    //     if (err) {
-    //       throw err;
-    //     }
-    //     console.log(`${fictionName}:${chaptchName}写入完成`);
-    //   }
-    // );
-    fs.appendFileSync(
-      path.join(__dirname, '../../temp/fictions/' + fictionName + '/《' + fictionName + '》.txt'),
-      data,
-      { encoding: "utf8" }
+    let fileDataChaptchName = chaptchName.substring(
+      chaptchName.indexOf("_") + 1,
+      chaptchName.length
     );
-    console.log(`${fictionName}:${chaptchName}写入完成`);
+    let data = "\n\t" + fileDataChaptchName + "\n" + chaptchContent;
+    console.log(`${fictionName}:${chaptchName}开始写入...`);
+    fs.writeFile(
+      path.join(
+        __dirname,
+        "../../temp/fictions/" +
+          fictionName +
+          "/chaptchs/" +
+          chaptchName +
+          ".txt"
+      ),
+      data,
+      { encoding: "utf8" },
+      (err) => {
+        if (err) {
+          throw err;
+        }
+        console.log(`${fictionName}:${chaptchName}写入完成`);
+      }
+    );
+    // fs.appendFileSync(
+    //   path.join(__dirname, '../../temp/fictions/' + fictionName + '/《' + fictionName + '》.txt'),
+    //   data,
+    //   { encoding: "utf8" }
+    // );
+    // console.log(`${fictionName}:${chaptchName}写入完成`);
   } catch (error) {
     console.log(
       `[saveFiction]:chaptchName=${chaptchName}&&chapchContent=${chaptchContent}&&fictionName=${fictionName}&&error=${error}`
@@ -206,29 +235,31 @@ function saveFiction(chaptchName, chaptchContent, fictionName) {
  *
  * @param {*} chaptchUrl
  * @param {*} fictionName
+ * @param {*} index
  */
-exports.getChaptchContent = async function (chaptchUrl, fictionName) {
+exports.getChaptchContent = async function (chaptchUrl, fictionName, index) {
   try {
-    console.log(`开始爬取章节${chaptchUrl}`);
-    const { code, data } = await getHtmlStr(chaptchUrl);
+    console.log(`开始爬取章节${index}:${chaptchUrl}`);
+    // const { code, data } = await getHtmlStr(chaptchUrl);
+    const { code, data } = await getHtmlStrWithAxios(chaptchUrl);
     console.log(`爬取结果code=${code}`);
     if (code && code === 200) {
       const $ = cheerio.load(data, { normalizeWhitespace: true });
-      const chaptchName = $(".bookname h1").first().text();
+      const chaptchName = index + "_" + $(".bookname h1").first().text();
       const content = $("#content")
         .text()
         .replace(
-          /\(看小说到\)16977小游戏每天更新好玩的小游戏，等你来发现！|章节错误,点此举报\(免注册\)5分钟内会处理.举报后请耐心等待,并刷新页面。/gi,
+          /看小说到|\(看小说到\)|16977小游戏每天更新好玩的小游戏，等你来发现|\(看小说到\)16977小游戏每天更新好玩的小游戏，等你来发现！|章节错误,点此举报\(免注册\)5分钟内会处理.举报后请耐心等待,并刷新页面。/gi,
           ""
         );
       saveFiction(chaptchName, content, fictionName);
     } else {
-      console.log("[getChaptchContent]出错了");
-      throw new Error("[getChaptchContent]出错了");
+      console.log("[getChaptchContent]出错了.code=" + code + ";data=" + data);
+      // throw new Error("[getChaptchContent]出错了");
     }
   } catch (error) {
-    console.log("[getChaptchContent]" + error);
-    throw new Error("[getChaptchContent]出错了." + error);
+    console.log("[getChaptchContent]出错了." + error);
+    // throw new Error("[getChaptchContent]出错了." + error);
   }
 };
 
